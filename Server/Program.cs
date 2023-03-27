@@ -1,4 +1,5 @@
-﻿using ModelsLib;
+﻿using Microsoft.EntityFrameworkCore;
+using ModelsLib;
 using Server.Contexts;
 using System.Net;
 using System.Text.Json;
@@ -6,130 +7,155 @@ using System.Text.Json;
 using var listener = new HttpListener();
 
 listener.Prefixes.Add(@"http://localhost:27001/");
-listener.Prefixes.Add(@"http://localhost:27002/");
-
 
 listener.Start();
-
 while (true)
 {
     var context = await listener.GetContextAsync();
 
     var request = context.Request;
 
-    if (request == null)
-        continue;
-
-    //switch (request.HttpMethod)
-    //{
-    //    case "GET":
-    //        {
-    //            var response = context.Response;
 
 
-    //            var key = request.QueryString["key"].ToCharArray()[0];
 
-    //            var dbContext = new CacheDbContext();
-                
-    //            var x = dbContext.KeyValues?.Find(key);
-                
-    //            if (x is not null)
-    //            {
-    //                response.ContentType = "application/json";
-
-    //                response.StatusCode = (int)HttpStatusCode.OK;
-
-    //                var keyValue = x;
-    //                var jsonStr = JsonSerializer.Serialize(keyValue);
-
-    //                var writer = new StreamWriter(response.OutputStream);
-    //                await writer.WriteAsync(jsonStr);
-    //            }
-    //            else
-    //                response.StatusCode = (int)HttpStatusCode.NotFound;
-
-
-    //            response.Close();
-
-    //            break;
-    //        }
-    //    case "POST":
-    //        {
-    //            var stream = request.InputStream;
-    //            var reader = new StreamReader(stream);
-
-    //            var jsonStr = reader.ReadToEnd();
-
-    //            Console.WriteLine(jsonStr);
-
-    //            var keyValue = JsonSerializer.Deserialize<KeyValue>(jsonStr);
-
-    //            var response = context.Response;
-
-    //            try
-    //            {
-    //                var dbContext = new CacheDbContext();
-
-    //                if (dbContext.Find<KeyValue>(keyValue.Key) == null)
-    //                {
-    //                    dbContext.Add(keyValue);
-    //                    dbContext.SaveChanges();
-    //                    response.StatusCode = (int)HttpStatusCode.OK;
-
-    //                }
-    //                else
-    //                    response.StatusCode = (int)HttpStatusCode.Found;
-
-    //                response.Close();
-
-    //            }
-    //            catch (Exception)
-    //            {
-
-    //                throw;
-    //            }
+    switch (request.HttpMethod)
+    {
+        case "GET":
+            
+            var response = context.Response;
+            var key = request.QueryString["key"].ToCharArray()[0];
+            
+          
+            try
+            {
+                var dbContext = new CacheDbContext();
+                var x = await dbContext.KeyValues.FindAsync(key);
+                if (x != null)
+                {
+                    response.ContentType = "application/json";
+                    response.Headers.Add("Content-Type", "text/plain");
+                    response.Headers.Add("Content-Type", "text/html");
+                    response.StatusCode = 200;
 
 
-    //            break;
-    //        }
+                    var writer = new StreamWriter(response.OutputStream);
+                    var jsonStr = JsonSerializer.Serialize<KeyValue>(x);
+                    await writer.WriteLineAsync(jsonStr);
 
-    //    case "PUT":
-    //        {
-    //            var stream = request.InputStream;
-    //            var reader = new StreamReader(stream);
+                    writer.Close();
 
-    //            var jsonStr = reader.ReadToEnd();
+                }
+                else
+                    response.StatusCode = (int)HttpStatusCode.NotFound;
 
-    //            Console.WriteLine(jsonStr);
+            response.Close();
+            }
+            catch (Exception)
+            {
 
-    //            var keyValue = JsonSerializer.Deserialize<KeyValue>(jsonStr);
+                throw;
+            }
+            
 
-    //            var response = context.Response;
+            break;
 
-    //            try
-    //            {
-    //                var dbContext = new CacheDbContext();
-    //                var x = dbContext.Find<KeyValue>(keyValue.Key);
-    //                if (x != null)
-    //                {
-    //                    x.Value = keyValue.Value;
-    //                    dbContext.SaveChanges();
-    //                    response.StatusCode = (int)HttpStatusCode.OK;
-    //                }
-    //                else
-    //                    response.StatusCode = (int)HttpStatusCode.NotFound;
+        case "POST":
 
-    //                response.Close();
+            var stream = request.InputStream;
+            var reader = new StreamReader(stream);
 
-    //            }
-    //            catch (Exception)
-    //            {
+            var json = reader.ReadToEnd();
 
-    //                throw;
-    //            }
-    //            break;
-    //        }
+            var keyValue = JsonSerializer.Deserialize<KeyValue>(json);
 
+            var response1 = context.Response;
+
+            try
+            {
+                var dbContext1 = new CacheDbContext();
+
+                if (dbContext1.Find<KeyValue>(keyValue.Key) == null)
+                {
+                    dbContext1.Add(keyValue);
+                    dbContext1.SaveChanges();
+                    response1.StatusCode = (int)HttpStatusCode.OK;
+
+                }
+                else
+                    response1.StatusCode = (int)HttpStatusCode.Found;
+
+                response1.Close();
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+            break;
+        case "PUT":
+
+            var streamPut = request.InputStream;
+            var readerPut = new StreamReader(streamPut);
+
+            var jsonPut = readerPut.ReadToEnd();
+
+            Console.WriteLine(jsonPut);
+
+            var keyValuePut = JsonSerializer.Deserialize<KeyValue>(jsonPut);
+
+            var responsePut = context.Response;
+
+            try
+            {
+                var dbContextPut = new CacheDbContext();
+                var c = dbContextPut.KeyValues.Find(keyValuePut.Key);
+                if (c != null)
+                {
+                    c.Value = keyValuePut.Value;
+                    dbContextPut.SaveChanges();
+                    responsePut.StatusCode = (int)HttpStatusCode.OK;
+                }
+                else
+                    responsePut.StatusCode = (int)HttpStatusCode.NotFound;
+
+                responsePut.Close();
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+            break;
+        case "DELETE":
+            var responseDelete = context.Response;
+            var keyDelete = request.QueryString["key"].ToCharArray()[0];
+            try
+            {
+                using (var dbContextDelete = new CacheDbContext())
+                {
+                    var entityToDelete = await dbContextDelete.KeyValues.FindAsync(keyDelete);
+                    if (entityToDelete != null)
+                    {
+                        dbContextDelete.KeyValues.Remove(entityToDelete);
+                        dbContextDelete.SaveChanges();
+                        responseDelete.StatusCode = (int)HttpStatusCode.OK;
+                    }
+                    else
+                        responseDelete.StatusCode = (int)HttpStatusCode.Found;
+                }
+                responseDelete.Close();
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+     
+            break;
     }
 
+
 }
+

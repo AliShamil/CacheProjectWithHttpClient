@@ -25,8 +25,9 @@
 
         <TextBlock Margin="20" FontSize="25" FontFamily="Comic SANS MS" HorizontalAlignment="Center">Key</TextBlock>
         <TextBlock Margin="20" FontSize="25" Grid.Column="1" FontFamily="Comic SANS MS" HorizontalAlignment="Center">Value</TextBlock>
-            <TextBox MaxLength="1" Grid.Row="1" Margin="15" Text="{Binding Key,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"/>
-        <TextBox x:Name="txtValue" Margin="15" Grid.Column="1" Grid.Row="1" Text="{Binding Value,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"/>
+        
+            <TextBox MaxLength="1" FontSize="15" Grid.Row="1" Margin="15" Text="{Binding Key,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBox x:Name="txtValue" FontSize="15" Margin="15" Grid.Column="1" Grid.Row="1" Text="{Binding Value,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"/>
 
 
     </Grid>

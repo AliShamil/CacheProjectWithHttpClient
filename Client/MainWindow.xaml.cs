@@ -18,6 +18,7 @@ using System.Windows.Shapes;
 using ModelsLib;
 using Client.Commands;
 using System.Net.Http.Json;
+using System.Runtime.ConstrainedExecution;
 
 namespace Client;
 
@@ -35,7 +36,7 @@ public partial class MainWindow : Window
     public static readonly DependencyProperty ValueProperty =
         DependencyProperty.Register("Value", typeof(int?), typeof(MainWindow));
 
-    public string Key 
+    public string Key
     {
         get { return (string)GetValue(KeyProperty); }
         set { SetValue(KeyProperty, value); }
@@ -60,6 +61,12 @@ public partial class MainWindow : Window
         switch ((HttpMethods)cmbCommand.SelectedItem)
         {
             case HttpMethods.GET:
+                if (Key is null)
+                {
+                    MessageBox.Show("Pls enter Key!");
+                    return;
+                }
+
                 var responseMessage = await client.GetAsync(@$"http://localhost:27001/?key={Key}");
                 if (responseMessage.IsSuccessStatusCode)
                 {
@@ -69,7 +76,18 @@ public partial class MainWindow : Window
                 else
                     MessageBox.Show(responseMessage.StatusCode.ToString());
                 break;
+
+
             case HttpMethods.POST:
+
+                var sbPost = CheckValidation();
+
+                if (sbPost.Length > 0)
+                {
+                    MessageBox.Show(sbPost.ToString());
+                    return;
+                }
+
                 var keyValue = new KeyValue()
                 {
                     Key = Key.ToCharArray()[0],
@@ -86,7 +104,17 @@ public partial class MainWindow : Window
                 else
                     MessageBox.Show("Already Exists");
                 break;
+
+
             case HttpMethods.PUT:
+                var sbPut = CheckValidation();
+
+                if (sbPut.Length > 0)
+                {
+                    MessageBox.Show(sbPut.ToString());
+                    return;
+                }
+
                 var keyValue2 = new KeyValue()
                 {
                     Key = Key.ToCharArray()[0],
@@ -104,15 +132,20 @@ public partial class MainWindow : Window
                 else
                     MessageBox.Show("Key doesn't exist");
                 break;
+
+
             case HttpMethods.DELETE:
+                if (Key is null)
+                {
+                    MessageBox.Show("Pls enter Key!");
+                    return;
+                }
                 var responseDelete = await client.DeleteAsync(@$"http://localhost:27001/?key={Key}");
 
                 if (responseDelete.StatusCode == HttpStatusCode.OK)
                     MessageBox.Show("Deleted Successfully");
                 else
                     MessageBox.Show("Key doesn't exist");
-                break;
-            default:
                 break;
         }
 
@@ -128,10 +161,22 @@ public partial class MainWindow : Window
                 break;
             case HttpMethods.POST:
             case HttpMethods.PUT:
+                Key = null;
                 txtValue.IsReadOnly= false;
                 break;
         }
+        Value = null;
     }
+    private StringBuilder CheckValidation()
+    {
+        var sb = new StringBuilder();
 
+        if (Key is null)
+            sb.Append("Pls enter Key!\n");
+        if (Value is null)
+            sb.Append("Pls enter Value!\n");
+
+        return sb;
+    }
 
 }

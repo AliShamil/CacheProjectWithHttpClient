@@ -16,33 +16,30 @@ while (true)
 {
     var context = await listener.GetContextAsync();
 
-    var request = context.Request;
+    var requestGet = context.Request;
 
-
-
-
-    switch (request.HttpMethod)
+    switch (requestGet.HttpMethod)
     {
         case "GET":
 
-            var response = context.Response;
-            var key = request.QueryString["key"].ToCharArray()[0];
-
+            var responseGet = context.Response;
+            var key = requestGet.QueryString["key"].ToCharArray()[0];
 
             try
             {
                 if (_cache.TryGetValue(key, out var cachedValue))
                 {
-                    response.ContentType = "application/json";
-                    response.Headers.Add("Content-Type", "text/plain");
-                    response.Headers.Add("Content-Type", "text/html");
-                    response.StatusCode = 200;
+                    responseGet.ContentType = "application/json";
+                    responseGet.Headers.Add("Content-Type", "text/plain");
+                    responseGet.Headers.Add("Content-Type", "text/html");
+                    responseGet.StatusCode = 200;
 
-                    var writer = new StreamWriter(response.OutputStream);
+                    var writer = new StreamWriter(responseGet.OutputStream);
                     var jsonStr = JsonSerializer.Serialize<KeyValue>(cachedValue);
                     await writer.WriteLineAsync(jsonStr);
-
                     writer.Close();
+                    Console.WriteLine($@"Successfully sent to Client From Cache! ({DateTime.Now})");
+                    Console.WriteLine();
                 }
                 else
                 {
@@ -51,24 +48,30 @@ while (true)
                     var x = await dbContext.KeyValues.FindAsync(key);
                     if (x != null)
                     {
-                        response.ContentType = "application/json";
-                        response.Headers.Add("Content-Type", "text/plain");
-                        response.Headers.Add("Content-Type", "text/html");
-                        response.StatusCode = 200;
+                        responseGet.ContentType = "application/json";
+                        responseGet.Headers.Add("Content-Type", "text/plain");
+                        responseGet.Headers.Add("Content-Type", "text/html");
+                        responseGet.StatusCode = 200;
 
 
-                        var writer = new StreamWriter(response.OutputStream);
-                        var jsonStr = JsonSerializer.Serialize<KeyValue>(x);
-                        await writer.WriteLineAsync(jsonStr);
+                        var writer = new StreamWriter(responseGet.OutputStream);
+                        var jsonGet = JsonSerializer.Serialize<KeyValue>(x);
+                        await writer.WriteLineAsync(jsonGet);
 
                         writer.Close();
                         _cache.TryAdd(key, x);
+                        Console.WriteLine($@"Successfully sent to Client From DB! ({DateTime.Now})");
+                        Console.WriteLine();
                     }
                     else
-                        response.StatusCode = (int)HttpStatusCode.NotFound;
+                    {
+                        Console.WriteLine($@"Not Founded! ({DateTime.Now})");
+                        Console.WriteLine();
+                        responseGet.StatusCode = (int)HttpStatusCode.NotFound;
+                    }
 
                 }
-                response.Close();
+                responseGet.Close();
             }
             catch (Exception)
             {
@@ -81,48 +84,51 @@ while (true)
 
         case "POST":
 
-            var stream = request.InputStream;
-            var reader = new StreamReader(stream);
+            var streamPost = requestGet.InputStream;
+            var readerPost = new StreamReader(streamPost);
 
-            var json = reader.ReadToEnd();
+            var jsonPost = readerPost.ReadToEnd();
 
-            var keyValue = JsonSerializer.Deserialize<KeyValue>(json);
+            var keyValue = JsonSerializer.Deserialize<KeyValue>(jsonPost);
 
-            var response1 = context.Response;
+            var responsePost = context.Response;
 
             try
             {
 
-                var dbContext1 = new CacheDbContext();
-
-                if (dbContext1.Find<KeyValue>(keyValue.Key) == null)
+                var dbContextPost = new CacheDbContext();
+                var dataPost = await dbContextPost.KeyValues.FindAsync(keyValue.Key);
+                if (dataPost == null)
                 {
-                    dbContext1.Add(keyValue);
-                    dbContext1.SaveChanges();
+                    dbContextPost.Add(keyValue);
+                    dbContextPost.SaveChanges();
 
                     _cache.TryAdd(keyValue.Key, keyValue);
-                    response1.StatusCode = (int)HttpStatusCode.OK;
+                    responsePost.StatusCode = (int)HttpStatusCode.OK;
+                    Console.WriteLine($@"Successfully Posted! ({DateTime.Now})");
+                    Console.WriteLine();
                 }
                 else
-                    response1.StatusCode = (int)HttpStatusCode.Found;
+                {
+                    Console.WriteLine($@"Not Founded! ({DateTime.Now})");
+                    Console.WriteLine();
+                    responsePost.StatusCode = (int)HttpStatusCode.Found;
+                }
 
-                response1.Close();
+                responsePost.Close();
 
             }
             catch (Exception)
             {
-
                 throw;
             }
             break;
         case "PUT":
 
-            var streamPut = request.InputStream;
+            var streamPut = requestGet.InputStream;
             var readerPut = new StreamReader(streamPut);
 
             var jsonPut = readerPut.ReadToEnd();
-
-            Console.WriteLine(jsonPut);
 
             var keyValuePut = JsonSerializer.Deserialize<KeyValue>(jsonPut);
 
@@ -138,22 +144,26 @@ while (true)
                     dbContextPut.SaveChanges();
                     _cache[keyValuePut.Key] = keyValuePut;
                     responsePut.StatusCode = (int)HttpStatusCode.OK;
+                    Console.WriteLine($@"Successfully Putted! ({DateTime.Now})");
+                    Console.WriteLine();
                 }
                 else
+                {
+                    Console.WriteLine($"Not Founded! ({DateTime.Now})");
+                    Console.WriteLine();
                     responsePut.StatusCode = (int)HttpStatusCode.NotFound;
+                }
 
                 responsePut.Close();
-
             }
             catch (Exception)
             {
-
                 throw;
             }
             break;
         case "DELETE":
             var responseDelete = context.Response;
-            var keyDelete = request.QueryString["key"].ToCharArray()[0];
+            var keyDelete = requestGet.QueryString["key"].ToCharArray()[0];
             try
             {
                 using (var dbContextDelete = new CacheDbContext())
@@ -165,15 +175,20 @@ while (true)
                         dbContextDelete.SaveChanges();
                         _cache.TryRemove(keyDelete, out _);
                         responseDelete.StatusCode = (int)HttpStatusCode.OK;
+                        Console.WriteLine($@"Successfully Deleted! ({DateTime.Now})");
+                        Console.WriteLine();
                     }
                     else
+                    {
+                        Console.WriteLine($@"Not Founded! ({DateTime.Now})");
+                        Console.WriteLine();
                         responseDelete.StatusCode = (int)HttpStatusCode.Found;
+                    }
                 }
                 responseDelete.Close();
             }
             catch (Exception)
             {
-
                 throw;
             }
 

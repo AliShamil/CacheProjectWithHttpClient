@@ -1,12 +1,15 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ModelsLib;
 using Server.Contexts;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json;
 
 using var listener = new HttpListener();
 
 listener.Prefixes.Add(@"http://localhost:27001/");
+
+var _cache = new ConcurrentDictionary<char, KeyValue>();
 
 listener.Start();
 while (true)
@@ -21,41 +24,58 @@ while (true)
     switch (request.HttpMethod)
     {
         case "GET":
-            
+
             var response = context.Response;
             var key = request.QueryString["key"].ToCharArray()[0];
-            
-          
+
+
             try
             {
-                var dbContext = new CacheDbContext();
-                var x = await dbContext.KeyValues.FindAsync(key);
-                if (x != null)
+                if (_cache.TryGetValue(key, out var cachedValue))
                 {
                     response.ContentType = "application/json";
                     response.Headers.Add("Content-Type", "text/plain");
                     response.Headers.Add("Content-Type", "text/html");
                     response.StatusCode = 200;
 
-
                     var writer = new StreamWriter(response.OutputStream);
-                    var jsonStr = JsonSerializer.Serialize<KeyValue>(x);
+                    var jsonStr = JsonSerializer.Serialize<KeyValue>(cachedValue);
                     await writer.WriteLineAsync(jsonStr);
 
                     writer.Close();
-
                 }
                 else
-                    response.StatusCode = (int)HttpStatusCode.NotFound;
+                {
 
-            response.Close();
+                    var dbContext = new CacheDbContext();
+                    var x = await dbContext.KeyValues.FindAsync(key);
+                    if (x != null)
+                    {
+                        response.ContentType = "application/json";
+                        response.Headers.Add("Content-Type", "text/plain");
+                        response.Headers.Add("Content-Type", "text/html");
+                        response.StatusCode = 200;
+
+
+                        var writer = new StreamWriter(response.OutputStream);
+                        var jsonStr = JsonSerializer.Serialize<KeyValue>(x);
+                        await writer.WriteLineAsync(jsonStr);
+
+                        writer.Close();
+                        _cache.TryAdd(key, x);
+                    }
+                    else
+                        response.StatusCode = (int)HttpStatusCode.NotFound;
+
+                }
+                response.Close();
             }
             catch (Exception)
             {
 
                 throw;
             }
-            
+
 
             break;
 
@@ -72,14 +92,16 @@ while (true)
 
             try
             {
+
                 var dbContext1 = new CacheDbContext();
 
                 if (dbContext1.Find<KeyValue>(keyValue.Key) == null)
                 {
                     dbContext1.Add(keyValue);
                     dbContext1.SaveChanges();
-                    response1.StatusCode = (int)HttpStatusCode.OK;
 
+                    _cache.TryAdd(keyValue.Key, keyValue);
+                    response1.StatusCode = (int)HttpStatusCode.OK;
                 }
                 else
                     response1.StatusCode = (int)HttpStatusCode.Found;
@@ -114,6 +136,7 @@ while (true)
                 {
                     c.Value = keyValuePut.Value;
                     dbContextPut.SaveChanges();
+                    _cache[keyValuePut.Key] = keyValuePut;
                     responsePut.StatusCode = (int)HttpStatusCode.OK;
                 }
                 else
@@ -140,6 +163,7 @@ while (true)
                     {
                         dbContextDelete.KeyValues.Remove(entityToDelete);
                         dbContextDelete.SaveChanges();
+                        _cache.TryRemove(keyDelete, out _);
                         responseDelete.StatusCode = (int)HttpStatusCode.OK;
                     }
                     else
@@ -152,7 +176,7 @@ while (true)
 
                 throw;
             }
-     
+
             break;
     }
 
